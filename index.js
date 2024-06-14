@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 const app = express();
 const port = process.env.PORT || 3003;
 app.listen(port, () => {
-    console.log("Backend is running!!");
+    console.log("Backend is running!! at " + port);
 })
 app.use(express.json());
 app.use(cors());
@@ -31,7 +31,7 @@ db.connect(err => {
     console.log('Connected to database.');
 });
 
-//admin login -> get complaints
+//admin login -> get complaints --------------------------------
 app.get('/complaints', (req, res) => {
     let sql = 'SELECT * FROM complaints';
     db.query(sql, (err, results) => {
@@ -40,33 +40,49 @@ app.get('/complaints', (req, res) => {
     })
   });
 
-  //dealer ->get complaints
+  //dealer ->get complaints ------------------------------------
   app.get('/users/:user_id/complaints', (req, res) => {
-    let sql = 'SELECT * FROM complaints WHERE user_id = ?';
+    let sql = 'SELECT * FROM complaints WHERE userID = ?';
     db.query(sql, [req.params.user_id], (err, results) => {
         if (err) throw err;
         res.json(results);
     });
   });
 
-  // dealer -> create a complaints
+  // users -> create a complaints ------------------------------
   app.post('/complaints', (req, res) => {
     const { user_id, complaint_text } = req.body;
-    const created_at = new Date();
-  
+    const created_at = new Date();  
     if (!user_id || !complaint_text) {
       return res.status(400).json({ error: 'user_id and complaint_text are required' });
-    }
-  
-    const query = 'INSERT INTO complaints (user_id, complaint_text, created_at) VALUES (?, ?, ?)';
-    
+    }  
+    const query = 'INSERT INTO complaints (user_id, complaint_text, created_at) VALUES (?, ?, ?)';    
     db.query(query, [user_id, complaint_text, created_at], (err, result) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
-  
       res.status(201).json({ id: result.insertId, user_id, complaint_text, created_at });
     });
   });
 
-  //
+// Endpoint to validate username and password -------------------
+app.post('/login', (req, res) => {
+    const { userName, password } = req.body;  
+    if (!userName || !password) {
+      return res.status(400).send('Username and password are required.');
+    }  
+    const query = 'SELECT userID FROM users WHERE userName = ? AND password = ?';
+    db.query(query, [userName, password], (err, results) => {
+      if (err) {
+        console.error('Error querying the database:', err);
+        return res.status(500).send('Error querying the database.');
+      }  
+      if (results.length > 0) {
+        const userId = results[0].userID;
+        res.json({ message: 'Login successful', userId });
+      } else {
+        res.status(401).send('Invalid username or password.');
+      }
+    });
+  });
+
