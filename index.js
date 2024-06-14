@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 
 // Initialize the app ------------------------------------------
 const app = express();
-const port = process.env.PORT || 8800;
+const port = process.env.PORT || 3003;
 app.listen(port, () => {
     console.log("Backend is running!!");
 })
@@ -23,9 +23,50 @@ const db = mysql.createConnection({
     database: process.env.DB_NAME
 });
 db.connect(err => {
+    console.log(process.env.DB_NAME)
     if (err) {
       console.error('Database connection failed: ' + err.stack);
       return;
     }
     console.log('Connected to database.');
 });
+
+//admin login -> get complaints
+app.get('/complaints', (req, res) => {
+    let sql = 'SELECT * FROM complaints';
+    db.query(sql, (err, results) => {
+        if (err) throw err;
+        res.json(results);  // });
+    })
+  });
+
+  //dealer ->get complaints
+  app.get('/users/:user_id/complaints', (req, res) => {
+    let sql = 'SELECT * FROM complaints WHERE user_id = ?';
+    db.query(sql, [req.params.user_id], (err, results) => {
+        if (err) throw err;
+        res.json(results);
+    });
+  });
+
+  // dealer -> create a complaints
+  app.post('/complaints', (req, res) => {
+    const { user_id, complaint_text } = req.body;
+    const created_at = new Date();
+  
+    if (!user_id || !complaint_text) {
+      return res.status(400).json({ error: 'user_id and complaint_text are required' });
+    }
+  
+    const query = 'INSERT INTO complaints (user_id, complaint_text, created_at) VALUES (?, ?, ?)';
+    
+    db.query(query, [user_id, complaint_text, created_at], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+  
+      res.status(201).json({ id: result.insertId, user_id, complaint_text, created_at });
+    });
+  });
+
+  //
