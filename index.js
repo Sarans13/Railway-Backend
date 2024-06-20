@@ -71,7 +71,7 @@ app.post('/login', (req, res) => {
     });
   });
 
-// CREATE A COMPLAINT BY THE EMPLOYEES
+// create a complaint by the employee -----------------------------
 app.post('/addComplaint', (req, res) => {
   const complaint = req.body;
 
@@ -100,35 +100,81 @@ app.post('/addComplaint', (req, res) => {
   });
 });
 
-// Define a route to handle retrieving complaints by userID
+// Define a route to handle retrieving complaints by userID ------------
 app.get('/getComplaintByUserId/:userID', (req, res) => {
   const userID = req.params.userID;
-
-  const sql = 'SELECT * FROM complaints WHERE userID = ?';
-
-  db.query(sql, [userID], (err, results) => {
+  const userLevelSql = 'SELECT userLevel FROM users WHERE userID = ?';
+  db.query(userLevelSql, [userID], (err, userResults) => {
       if (err) {
-          console.error('Error retrieving data:', err);
-          res.status(500).send('Failed to retrieve data');
+          console.error('Error retrieving user level:', err);
+          res.status(500).send('Failed to retrieve user level');
+      } else if (userResults.length === 0) {
+          res.status(404).send('User not found');
       } else {
-          console.log('Data retrieved successfully:', results);
-          res.status(200).json(results);
+          const userLevel = userResults[0].userLevel;
+          let sql;
+          if (userLevel === 2) {
+              sql = 'SELECT complaintID, title, complaint FROM complaints WHERE userID = ?';
+          } else {
+              sql = 'SELECT * FROM complaints WHERE userID = ?';
+          }
+
+          db.query(sql, [userID], (err, complaintResults) => {
+              if (err) {
+                  console.error('Error retrieving complaints:', err);
+                  res.status(500).send('Failed to retrieve complaints');
+              } else {
+                  // console.log('Complaints retrieved successfully:', complaintResults);
+                  res.status(200).json(complaintResults);
+              }
+          });
       }
   });
 });
 
-app.get('/getComplaintByComplaintId/:id',(req,res) =>{
+
+
+// Define a route to retrieve results by compllaint id ------------------
+app.get('/getComplaintByComplaintId/:id', (req, res) => {
   const compID = req.params.id;
+  const getUserIDSql = 'SELECT userID FROM complaints WHERE complaintID = ?';
 
-  const sql = 'SELECT * FROM complaints WHERE complaintID = ?';
-
-  db.query(sql, [compID], (err, results) => {
+  db.query(getUserIDSql, [compID], (err, complaintResults) => {
       if (err) {
-          console.error('Error retrieving data:', err);
-          res.status(500).send('Failed to retrieve data');
+          console.error('Error retrieving user ID:', err);
+          res.status(500).send('Failed to retrieve user ID');
+      } else if (complaintResults.length === 0) {
+          res.status(404).send('Complaint not found');
       } else {
-          console.log('Data retrieved successfully:', results);
-          res.status(200).json(results);
+          const userID = complaintResults[0].userID;
+          const getUserLevelSql = 'SELECT userLevel FROM users WHERE userID = ?';
+
+          db.query(getUserLevelSql, [userID], (err, userResults) => {
+              if (err) {
+                  console.error('Error retrieving user level:', err);
+                  res.status(500).send('Failed to retrieve user level');
+              } else if (userResults.length === 0) {
+                  res.status(404).send('User not found');
+              } else {
+                  const userLevel = userResults[0].userLevel;
+                  let sql;
+                  if (userLevel === 2) {
+                      sql = 'SELECT complaintID, title, complaint FROM complaints WHERE complaintID = ?';
+                  } else {
+                      sql = 'SELECT * FROM complaints WHERE complaintID = ?';
+                  }
+
+                  db.query(sql, [compID], (err, results) => {
+                      if (err) {
+                          console.error('Error retrieving complaints:', err);
+                          res.status(500).send('Failed to retrieve complaints');
+                      } else {
+                          // console.log('Complaints retrieved successfully:', results);
+                          res.status(200).json(results);
+                      }
+                  });
+              }
+          });
       }
   });
-})
+});
