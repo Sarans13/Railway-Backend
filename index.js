@@ -49,22 +49,7 @@ app.get('/complaints', (req, res) => {
     });
   });
 
-  // users -> create a complaints ------------------------------
-  app.post('/complaints', (req, res) => {
-    const { user_id, complaint_text } = req.body;
-    const created_at = new Date();  
-    if (!user_id || !complaint_text) {
-      return res.status(400).json({ error: 'user_id and complaint_text are required' });
-    }  
-    const query = 'INSERT INTO complaints (user_id, complaint_text, created_at) VALUES (?, ?, ?)';    
-    db.query(query, [user_id, complaint_text, created_at], (err, result) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      res.status(201).json({ id: result.insertId, user_id, complaint_text, created_at });
-    });
-  });
-
+ 
 // Endpoint to validate username and password -------------------
 app.post('/login', (req, res) => {
     const { userName, password } = req.body;  
@@ -86,3 +71,64 @@ app.post('/login', (req, res) => {
     });
   });
 
+// CREATE A COMPLAINT BY THE EMPLOYEES
+app.post('/addComplaint', (req, res) => {
+  const complaint = req.body;
+
+  const sql = `INSERT INTO complaints 
+  (userName, userID, title, complaint, department, website, module, division, document, status) 
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`;
+
+  db.query(sql, [
+      complaint.userName,
+      complaint.userID,
+      complaint.title,
+      complaint.complaint,
+      complaint.department,
+      complaint.website,
+      complaint.module,
+      complaint.division,
+      complaint.document
+  ], (err, result) => {
+      if (err) {
+          console.error('Error inserting data:', err);
+          res.status(500).send('Failed to insert data');
+      } else {
+          console.log('Data inserted successfully:', result);
+          res.status(200).send('Data inserted successfully');
+      }
+  });
+});
+
+// Define a route to handle retrieving complaints by userID
+app.get('/getComplaintByUserId/:userID', (req, res) => {
+  const userID = req.params.userID;
+
+  const sql = 'SELECT * FROM complaints WHERE userID = ?';
+
+  db.query(sql, [userID], (err, results) => {
+      if (err) {
+          console.error('Error retrieving data:', err);
+          res.status(500).send('Failed to retrieve data');
+      } else {
+          console.log('Data retrieved successfully:', results);
+          res.status(200).json(results);
+      }
+  });
+});
+
+app.get('/getComplaintByComplaintId/:id',(req,res) =>{
+  const compID = req.params.id;
+
+  const sql = 'SELECT * FROM complaints WHERE complaintID = ?';
+
+  db.query(sql, [compID], (err, results) => {
+      if (err) {
+          console.error('Error retrieving data:', err);
+          res.status(500).send('Failed to retrieve data');
+      } else {
+          console.log('Data retrieved successfully:', results);
+          res.status(200).json(results);
+      }
+  });
+})
