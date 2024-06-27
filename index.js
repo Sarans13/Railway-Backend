@@ -55,8 +55,7 @@ app.post("/login", (req, res) => {
   if (!userName || !password) {
     return res.status(400).send("Username and password are required.");
   }
-  const query =
-    "SELECT userID, userName FROM users WHERE userName = ? AND password = ?";
+  const query = "SELECT userID, userName FROM users WHERE userName = ? AND password = ?";
   db.query(query, [userName, password], (err, results) => {
     if (err) {
       console.error("Error querying the database:", err);
@@ -101,19 +100,12 @@ app.post("/addComplaint", (req, res) => {
         console.log("Complaint inserted successfully with ID:", complaintID);
 
         const sqlInsertTransaction = `INSERT INTO transactions 
-            (complaintID, createdBy, createdByUsername, sentTo, sentToUsername, remark, status) 
+            (complaintID, createdBy, sentTo, remark, status) 
             VALUES (?, ?, ?, ?, ?, ?, 'pending')`;
 
         db.query(
           sqlInsertTransaction,
-          [
-            complaintID,
-            complaint.userID,
-            complaint.userName,
-            1,
-            "admin",
-            complaint.complaint,
-          ],
+          [complaintID, complaint.userID, complaint.userName, 1, 'admin', complaint.complaint],
           (err, result) => {
             if (err) {
               console.error("Error inserting data into transactions:", err);
@@ -124,8 +116,6 @@ app.post("/addComplaint", (req, res) => {
                 message: "Complaint and transaction inserted successfully",
                 complaintID: complaintID,
                 userID: complaint.userID,
-                createdByUsername: complaint.userName,
-                sentToUsername: "admin",
                 status: "pending",
               });
             }
@@ -137,125 +127,114 @@ app.post("/addComplaint", (req, res) => {
 });
 
 // Define a route to handle retrieving complaints by userID --------------------------------
-app.get("/getComplaintByUserId/:userID", (req, res) => {
-  const userID = req.params.userID;
-  const userLevelSql = "SELECT userLevel FROM users WHERE userID = ?";
+app.get('/getComplaintByUserId/:userID', (req, res) => {
+    const userID = req.params.userID;
+    const userLevelSql = 'SELECT userLevel FROM users WHERE userID = ?';
 
-  db.query(userLevelSql, [userID], (err, userResults) => {
-    if (err) {
-      console.error("Error retrieving user level:", err);
-      res.status(500).send("Failed to retrieve user level");
-    } else if (userResults.length === 0) {
-      res.status(404).send("User not found");
-    } else {
-      const userLevel = userResults[0].userLevel;
-      let sql;
-      if (userLevel === 2) {
-        sql =
-          "SELECT complaintID, title, complaint, status FROM complaints WHERE userID = ?";
-        db.query(sql, [userID], (err, complaintResults) => {
-          if (err) {
-            console.error("Error retrieving complaints:", err);
-            res.status(500).send("Failed to retrieve complaints");
-          } else {
-            res.status(200).json(complaintResults);
-          }
-        });
-      } else {
-        sql = `
-              SELECT complaintID 
-              FROM transactions 
-              WHERE createdBy = ? OR sentTo = ?`;
-        db.query(sql, [userID, userID], (err, transactionResults) => {
-          if (err) {
-            console.error("Error retrieving transaction complaint IDs:", err);
-            res
-              .status(500)
-              .send("Failed to retrieve transaction complaint IDs");
-          } else {
-            if (transactionResults.length === 0) {
-              res.status(404).send("No transactions found for the given user.");
+    db.query(userLevelSql, [userID], (err, userResults) => {
+        if (err) {
+            console.error('Error retrieving user level:', err);
+            res.status(500).send('Failed to retrieve user level');
+        } else if (userResults.length === 0) {
+            res.status(404).send('User not found');
+        } else {
+            const userLevel = userResults[0].userLevel;
+            let sql;
+            if (userLevel === 2) {
+                sql = 'SELECT complaintID, title, complaint, status FROM complaints WHERE userID = ?';
+                db.query(sql, [userID], (err, complaintResults) => {
+                    if (err) {
+                        console.error('Error retrieving complaints:', err);
+                        res.status(500).send('Failed to retrieve complaints');
+                    } else {
+                        res.status(200).json(complaintResults);
+                    }
+                });
             } else {
-              const complaintIDs = transactionResults.map(
-                (row) => row.complaintID
-              );
-              sql = `
-                          SELECT c.*, t.transactionId, t.createdBy, t.createdByUsername, t.sentTo, t.sentToUsername, t.timeAndDate, t.remark, t.status AS transactionStatus
-                          FROM complaints c
-                          LEFT JOIN transactions t ON c.complaintID = t.complaintID
-                          WHERE c.complaintID IN (?)`;
-              db.query(sql, [complaintIDs], (err, complaintResults) => {
-                if (err) {
-                  console.error(
-                    "Error retrieving complaints and transactions:",
-                    err
-                  );
-                  res
-                    .status(500)
-                    .send("Failed to retrieve complaints and transactions");
-                } else {
-                  const complaintsMap = {};
-                  complaintResults.forEach((row) => {
-                    if (!complaintsMap[row.complaintID]) {
-                      complaintsMap[row.complaintID] = {
-                        complaintID: row.complaintID,
-                        userName: row.userName,
-                        userID: row.userID,
-                        title: row.title,
-                        complaint: row.complaint,
-                        department: row.department,
-                        website: row.website,
-                        module: row.module,
-                        division: row.division,
-                        document: row.document,
-                        status: row.status,
-                        transactions: [],
-                      };
-                    }
-                    if (row.transactionId) {
-                      complaintsMap[row.complaintID].transactions.push({
-                        transactionId: row.transactionId,
-                        createdBy: row.createdBy,
-                        createdByUsername: row.createdByUsername,
-                        sentTo: row.sentTo,
-                        sentToUsername: row.sentToUsername,
-                        timeAndDate: row.timeAndDate,
-                        remark: row.remark,
-                        status: row.transactionStatus,
-                      });
-                    }
-                  });
+                sql = `
+                SELECT complaintID 
+                FROM transactions 
+                WHERE createdBy = ? OR sentTo = ?`;
+                db.query(sql, [userID, userID], (err, transactionResults) => {
+                    if (err) {
+                        console.error('Error retrieving transaction complaint IDs:', err);
+                        res.status(500).send('Failed to retrieve transaction complaint IDs');
+                    } else {
+                        if (transactionResults.length === 0) {
+                            res.status(404).send('No transactions found for the given user.');
+                        } else {
+                            const complaintIDs = transactionResults.map(row => row.complaintID);
+                            sql = `
+                            SELECT c.*, t.transactionId, t.createdBy, t.sentTo, t.timeAndDate, t.remark, t.status AS transactionStatus
+                            FROM complaints c
+                            LEFT JOIN transactions t ON c.complaintID = t.complaintID
+                            WHERE c.complaintID IN (?)`;
+                            db.query(sql, [complaintIDs], (err, complaintResults) => {
+                                if (err) {
+                                    console.error('Error retrieving complaints and transactions:', err);
+                                    res.status(500).send('Failed to retrieve complaints and transactions');
+                                } else {
+                                    // Group the complaints and their transactions
+                                    const complaintsMap = {};
+                                    complaintResults.forEach(row => {
+                                        if (!complaintsMap[row.complaintID]) {
+                                            complaintsMap[row.complaintID] = {
+                                                complaintID: row.complaintID,
+                                                userName: row.userName,
+                                                userID: row.userID,
+                                                title: row.title,
+                                                complaint: row.complaint,
+                                                department: row.department,
+                                                website: row.website,
+                                                module: row.module,
+                                                division: row.division,
+                                                document: row.document,
+                                                status: row.status,
+                                                transactions: []
+                                            };
+                                        }
+                                        if (row.transactionId) {
+                                            complaintsMap[row.complaintID].transactions.push({
+                                                transactionId: row.transactionId,
+                                                createdBy: row.createdBy,
+                                                sentTo: row.sentTo,
+                                                timeAndDate: row.timeAndDate,
+                                                remark: row.remark,
+                                                status: row.transactionStatus
+                                            });
+                                        }
+                                    });
 
-                  const complaintsList = Object.values(complaintsMap);
-                  res.status(200).json(complaintsList);
-                }
-              });
+                                    const complaintsList = Object.values(complaintsMap);
+                                    res.status(200).json(complaintsList);
+                                }
+                            });
+                        }
+                    }
+                });
             }
-          }
-        });
-      }
-    }
-  });
+        }
+    });
 });
+
 
 // Define a route to handle retrieving complaints by complaintID ----------------------------
 app.get("/getComplaintByComplaintId/:id", (req, res) => {
-  const compID = req.params.id;
-
-  const sql =
-    "SELECT title, description, status FROM complaints WHERE complaintID = ?";
-
-  db.query(sql, [compID], (err, results) => {
-    if (err) {
-      console.error("Error retrieving complaints:", err);
-      res.status(500).send("Failed to retrieve complaints");
-    } else if (results.length === 0) {
-      res.status(404).send("Complaint not found");
-    } else {
-      res.status(200).json(results[0]);
-    }
+    const compID = req.params.id;
+    
+    const sql = "SELECT title, description, status FROM complaints WHERE complaintID = ?";
+  
+    db.query(sql, [compID], (err, results) => {
+      if (err) {
+        console.error("Error retrieving complaints:", err);
+        res.status(500).send("Failed to retrieve complaints");
+      } else if (results.length === 0) {
+        res.status(404).send("Complaint not found");
+      } else {
+        res.status(200).json(results[0]);
+      }
+    });
   });
-});
 
 //get level 0 and level 1 users -----------------------------------------------------------
 app.get("/getLevel0and1", (req, res) => {
@@ -278,21 +257,17 @@ app.post("/forwardComplaint", (req, res) => {
     remark,
     createdBy,
     sentTo,
-    complaintID,
-    createdByUsername,
-    sentToUsername,
+    complaintID
   } = req.body;
 
   const transactionQuery =
-    "INSERT INTO transactions (complaintID, createdBy, sentTo, remark, status, createdByUsername, sentToUsername) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    "INSERT INTO transactions (complaintID, createdBy, sentTo, remark, status) VALUES (?, ?, ?, ?, ?)";
   const transactionValues = [
     complaintID,
     createdBy,
     sentTo,
     remark,
     "In Progress",
-    createdByUsername,
-    sentToUsername,
   ];
 
   db.query(transactionQuery, transactionValues, (err, transactionResult) => {
@@ -315,31 +290,24 @@ app.post("/forwardComplaint", (req, res) => {
         return;
       }
 
-      res.status(200).json({
-        message: "Complaint forwarded successfully and status updated",
-      });
+      res
+        .status(200)
+        .json({
+          message: "Complaint forwarded successfully and status updated",
+        });
     });
   });
 });
 
 // Resolve a complaint ---------------------------------------------------------------------------------
 app.post("/resolveComplaint", (req, res) => {
-  const {
-    remark,
-    createdBy,
-    createdByUsername,
-    sentTo,
-    sentToUsername,
-    complaintID,
-  } = req.body;
+  const { remark, createdBy, sentTo, complaintID } = req.body;
   const transactionQuery =
-    "INSERT INTO transactions (complaintID, createdBy, createdByUsername, sentTo, sentToUsername, remark, status) VALUES (?, ?, ?, ?, ?)";
+    "INSERT INTO transactions (complaintID, createdBy, sentTo, remark, status) VALUES (?, ?, ?, ?, ?)";
   const transactionValues = [
     complaintID,
     createdBy,
-    createdByUsername,
     sentTo,
-    sentToUsername,
     remark,
     "Resolved",
   ];
