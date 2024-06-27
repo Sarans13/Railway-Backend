@@ -57,8 +57,8 @@ app.post("/addComplaint", (req, res) => {
   const complaint = req.body;
 
   const sqlInsertComplaint = `INSERT INTO complaints 
-    (userName, userID, title, complaint, department, website, module, division, document, status) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`;
+    (userName, userID, title, complaint, department, website, module, division, document, status, currentHolder) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1)`;
 
   db.query(
     sqlInsertComplaint,
@@ -83,11 +83,11 @@ app.post("/addComplaint", (req, res) => {
 
         const sqlInsertTransaction = `INSERT INTO transactions 
             (complaintID, createdBy, sentTo, remark, status) 
-            VALUES (?, ?, ?, ?, ?, ?, 'pending')`;
+            VALUES (?, ?, ?, ?, 'pending')`;
 
         db.query(
           sqlInsertTransaction,
-          [complaintID, complaint.userID, complaint.userName, 1, 'admin', complaint.complaint],
+          [complaintID, complaint.userID, 1, complaint.complaint],
           (err, result) => {
             if (err) {
               console.error("Error inserting data into transactions:", err);
@@ -150,11 +150,13 @@ app.get('/getComplaintByUserId/:userID', (req, res) => {
                           SELECT c.*, 
                                  t.transactionId, t.createdBy, t.sentTo, t.timeAndDate, t.remark, t.status AS transactionStatus,
                                  uc.userName AS createdByUsername,
-                                 us.userName AS sentToUsername
+                                 us.userName AS sentToUsername,
+                                 ch.userName AS currentHolderUsername
                           FROM complaints c
                           LEFT JOIN transactions t ON c.complaintID = t.complaintID
                           LEFT JOIN users uc ON t.createdBy = uc.userID
                           LEFT JOIN users us ON t.sentTo = us.userID
+                          LEFT JOIN users ch ON c.currentHolder = ch.userID
                           WHERE c.complaintID IN (?)`;
                           db.query(sql, [complaintIDs], (err, complaintResults) => {
                               if (err) {
@@ -177,6 +179,8 @@ app.get('/getComplaintByUserId/:userID', (req, res) => {
                                               division: row.division,
                                               document: row.document,
                                               status: row.status,
+                                              currentHolder: row.currentHolder,
+                                              currentHolderUsername: row.currentHolderUsername,
                                               transactions: []
                                           };
                                       }
@@ -268,26 +272,34 @@ app.post("/forwardComplaint", (req, res) => {
         .json({ error: "Error inserting into transactions table" });
       return;
     }
-
     const updateStatusQuery =
       "UPDATE complaints SET status = ? WHERE complaintID = ?";
     const updateStatusValues = ["In Progress", complaintID];
-
     db.query(updateStatusQuery, updateStatusValues, (err, updateResult) => {
       if (err) {
         console.error("Error updating complaints table:", err);
         res.status(500).json({ error: "Error updating complaints table" });
         return;
       }
-
-      res
-        .status(200)
-        .json({
-          message: "Complaint forwarded successfully and status updated",
-        });
+      const updateCurrentHolderQuery =
+        "UPDATE complaints SET currentHolder = ? WHERE complaintID = ?";
+      const updateCurrentHolderValues = [sentTo, complaintID];
+      db.query(updateCurrentHolderQuery, updateCurrentHolderValues, (err, updateHolderResult) => {
+        if (err) {
+          console.error("Error updating currentHolder in complaints table:", err);
+          res.status(500).json({ error: "Error updating currentHolder in complaints table" });
+          return;
+        }
+        res
+          .status(200)
+          .json({
+            message: "Complaint forwarded successfully, status updated, and currentHolder updated",
+          });
+      });
     });
   });
 });
+
 
 // Resolve a complaint ---------------------------------------------------------------------------------
 app.post("/resolveComplaint", (req, res) => {
@@ -313,16 +325,24 @@ app.post("/resolveComplaint", (req, res) => {
     const updateStatusQuery =
       "UPDATE complaints SET status = ? WHERE complaintID = ?";
     const updateStatusValues = ["Resolved", complaintID];
-
     db.query(updateStatusQuery, updateStatusValues, (err, updateResult) => {
       if (err) {
         console.error("Error updating complaints table:", err);
         res.status(500).json({ error: "Error updating complaints table" });
         return;
       }
-
-      res.status(200).json({
-        message: "Complaint forwarded successfully and status updated",
+      const updateCurrentHolderQuery =
+        "UPDATE complaints SET currentHolder = ? WHERE complaintID = ?";
+      const updateCurrentHolderValues = [createdBy, complaintID];
+      db.query(updateCurrentHolderQuery, updateCurrentHolderValues, (err, updateHolderResult) => {
+        if (err) {
+          console.error("Error updating currentHolder in complaints table:", err);
+          res.status(500).json({ error: "Error updating currentHolder in complaints table" });
+          return;
+        }
+        res.status(200).json({
+          message: "Complaint resolved successfully, status updated, and currentHolder set",
+        });
       });
     });
   });
