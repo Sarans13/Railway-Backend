@@ -3,6 +3,11 @@ import express from "express";
 import mysql from "mysql";
 import cors from "cors";
 import dotenv from "dotenv";
+import multer from 'multer';
+import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+
 
 // Initialize the app ------------------------------------------
 const app = express();
@@ -31,6 +36,19 @@ db.connect((err) => {
   console.log("Connected to database.");
 });
 
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'public/uploads/')
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = crypto.randomBytes(16).toString('hex');
+    cb(null, uniqueSuffix + path.extname(file.originalname))
+  }
+});
+
+const upload = multer({ storage: storage });
+
 // Endpoint to validate username and password -------------------
 app.post("/login", (req, res) => {
   const { userName, password } = req.body;
@@ -54,57 +72,67 @@ app.post("/login", (req, res) => {
 });
 
 // create a complaint by the employee -----------------------------
-app.post("/addComplaint", (req, res) => {
-  const complaint = req.body;
-  const sqlInsertComplaint = `INSERT INTO complaints 
-    (createdByName, pfNo, title, complaint, department, website, module, division, document, status, currentHolder) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1)`;
-  db.query(
-    sqlInsertComplaint,
-    [
-      complaint.createdByName,
-      complaint.pfNo,
-      complaint.title,
-      complaint.complaint,
-      complaint.department,
-      complaint.website,
-      complaint.module,
-      complaint.division,
-      complaint.document,
-    ],
-    (err, result) => {
-      if (err) {
-        console.error("Error inserting data into complaints:", err);
-        res.status(500).send("Failed to insert data");
-      } else {
-        const complaintID = result.insertId;
-        console.log("Complaint inserted successfully with ID:", complaintID);
+app.post('/addComplaint', upload.single('document'), async (req, res) => {
+	const complaint = req.body;
+	const file = req.file;
 
-        const sqlInsertTransaction = `INSERT INTO transactions 
-            (complaintID, createdBy, sentTo, remark, status) 
-            VALUES (?, ?, ?, ?, 'pending')`;
+	try {
+		const sqlInsertComplaint = `
+      INSERT INTO complaints (createdByName, pfNo, title, complaint, department, website, module, division, document, status, currentHolder)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1)
+    `;
 
-        db.query(
-          sqlInsertTransaction,
-          [complaintID, complaint.pfNo, 1, complaint.complaint],
-          (err, result) => {
-            if (err) {
-              console.error("Error inserting data into transactions:", err);
-              res.status(500).send("Failed to insert transaction");
-            } else {
-              console.log("Transaction inserted successfully:", result);
-              res.status(200).send({
-                message: "Complaint and transaction inserted successfully",
-                complaintID: complaintID,
-                createdBy: complaint.pfNo,
-                status: "pending",
-              });
-            }
-          }
-        );
-      }
-    }
-  );
+		db.query(
+			sqlInsertComplaint,
+			[
+				complaint.createdByName,
+				complaint.pfNo,
+				complaint.title,
+				complaint.complaint,
+				complaint.department,
+				complaint.website,
+				complaint.module,
+				complaint.division,
+				file ? file.filename : null,
+			],
+			(err, result) => {
+				if (err) {
+					console.error('Error inserting data into complaints:', err);
+					return res.status(500).send('Failed to insert data');
+				}
+
+				const complaintID = result.insertId;
+				console.log('Complaint inserted successfully with ID:', complaintID);
+
+				const sqlInsertTransaction = `
+          INSERT INTO transactions (complaintID, createdBy, sentTo, remark, status)
+          VALUES (?, ?, ?, ?, 'pending')
+        `;
+
+				db.query(
+					sqlInsertTransaction,
+					[complaintID, complaint.pfNo, 1, complaint.complaint],
+					(err, result) => {
+						if (err) {
+							console.error('Error inserting data into transactions:', err);
+							return res.status(500).send('Failed to insert transaction');
+						}
+
+						console.log('Transaction inserted successfully:', result);
+						res.status(200).json({
+							message: 'Complaint and transaction inserted successfully',
+							complaintID: complaintID,
+							createdBy: complaint.pfNo,
+							status: 'pending',
+						});
+					}
+				);
+			}
+		);
+	} catch (err) {
+		console.error('Error processing complaint:', err);
+		res.status(500).send('Failed to process complaint');
+	}
 });
 
 // Define a route to handle retrieving complaints by userID --------------------------------
@@ -126,13 +154,17 @@ app.get("/getComplaintByUserId/:userID", (req, res) => {
           FROM transactions
           WHERE createdBy = ? OR sentTo = ?
       )`;
+  
   db.query(sql, [userID, userID], (err, complaintResults) => {
     if (err) {
       console.error("Error retrieving complaints and transactions:", err);
       res.status(500).send("Failed to retrieve complaints and transactions");
     } else {
+      // Ensure complaintsResults is always an array
+      const resultsArray = Array.isArray(complaintResults) ? complaintResults : [complaintResults];
+      
       const complaintsMap = {};
-      complaintResults.forEach((row) => {
+      resultsArray.forEach((row) => {
         if (!complaintsMap[row.complaintID]) {
           complaintsMap[row.complaintID] = {
             complaintID: row.complaintID,
@@ -164,11 +196,13 @@ app.get("/getComplaintByUserId/:userID", (req, res) => {
           });
         }
       });
+      
       const complaintsList = Object.values(complaintsMap);
       res.status(200).json(complaintsList);
     }
   });
 });
+
 
 // add user --------------------------------------------------------------------------------
 app.post("/addUser", (req, res) => {
@@ -209,8 +243,8 @@ app.post("/addUser", (req, res) => {
 // Define a route to handle retrieving complaints by complaintID ----------------------------
 app.get("/getComplaintByComplaintId/:id", (req, res) => {
   const compID = req.params.id;
-  const sql =
-    "SELECT title, complaint, status FROM complaints WHERE complaintID = ?";
+  const sql = "SELECT title, complaint, status FROM complaints WHERE complaintID = ?";
+  
   db.query(sql, [compID], (err, results) => {
     if (err) {
       console.error("Error retrieving complaints:", err);
@@ -218,10 +252,13 @@ app.get("/getComplaintByComplaintId/:id", (req, res) => {
     } else if (results.length === 0) {
       res.status(404).send("Complaint not found");
     } else {
-      res.status(200).json(results[0]);
+      // Wrap results in an array
+      const response = Array.isArray(results) ? results : [results];
+      res.status(200).json(response);
     }
   });
 });
+
 
 //get level 0 and level 1 users -----------------------------------------------------------
 app.get("/getLevel0and1", (req, res) => {
@@ -300,7 +337,7 @@ app.post("/forwardComplaint", (req, res) => {
 app.post("/resolveComplaint", (req, res) => {
   const { remark, createdBy, sentTo, complaintID } = req.body;
   const transactionQuery =
-    "INSERT INTO transactions (complaintID, createdBy, sentTo, remark, status) VALUES (?, ?, ?, ?, ?)";
+    "INSERT INTO transactions (complaintID, createdBy, sentTo, remark, status, id) VALUES (?, ?, ?, ?, ?)";
   const transactionValues = [
     complaintID,
     createdBy,
@@ -357,14 +394,16 @@ app.post("/resolveComplaint", (req, res) => {
 // Fetch a complaint by pfNo of the employee -----------------------------------
 app.get('/getComplaintDetailsByPfNo/:pfNo', (req, res) => {
   const pfNo = req.params.pfNo;
-  const sql = 'SELECT title, complaint, status FROM railway.complaints WHERE pfNo = ?';
+  const sql = 'SELECT title, complaint, status, id FROM railway.complaints WHERE pfNo = ?';
   db.query(sql, [pfNo], (err, results) => {
-      if (err) {
-          console.error('Error retrieving complaint details by pfNo:', err);
-          res.status(500).send('Failed to retrieve complaint details');
-      } else {
-          res.status(200).json(results);
-      }
+    if (err) {
+      console.error('Error retrieving complaint details by pfNo:', err);
+      res.status(500).send('Failed to retrieve complaint details');
+    } else {
+      // Wrap results in an array if not already
+      const response = Array.isArray(results) ? results : [results];
+      res.status(200).json(response);
+    }
   });
 });
 
