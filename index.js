@@ -8,6 +8,11 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Initialize the app ------------------------------------------
 const app = express();
@@ -19,6 +24,11 @@ app.use(express.json());
 app.use(cors());
 // load the environment variable from the file
 dotenv.config();
+
+// Serve static files from the "public" folder
+app.use(express.static(path.join(__dirname, 'public')));
+
+
 
 // Connect with the database -----------------------------------
 const db = mysql.createConnection({
