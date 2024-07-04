@@ -168,8 +168,8 @@ app.get("/getComplaintByUserId/:userID", (req, res) => {
         if (!complaintsMap[row.complaintID]) {
           complaintsMap[row.complaintID] = {
             complaintID: row.complaintID,
-            userName: row.userName,
-            userID: row.userID,
+            createdByName: row.createdByName,
+            pfNo: row.pfNo,
             title: row.title,
             complaint: row.complaint,
             department: row.department,
@@ -188,7 +188,7 @@ app.get("/getComplaintByUserId/:userID", (req, res) => {
             transactionId: row.transactionId,
             createdBy: row.createdBy,
             sentTo: row.sentTo,
-            createdByUsername: row.createdByUsername,
+            createdByUsername: complaintsMap[row.complaintID].transactions.length === 0 ? row.createdByName : row.createdByUsername,
             sentToUsername: row.sentToUsername,
             timeAndDate: row.timeAndDate,
             remark: row.remark,
@@ -243,7 +243,7 @@ app.post("/addUser", (req, res) => {
 // Define a route to handle retrieving complaints by complaintID ----------------------------
 app.get("/getComplaintByComplaintId/:id", (req, res) => {
   const compID = req.params.id;
-  const sql = "SELECT title, complaint, status FROM complaints WHERE complaintID = ?";
+  const sql = "SELECT title, complaint, status, complaintID FROM complaints WHERE complaintID = ?";
   
   db.query(sql, [compID], (err, results) => {
     if (err) {
@@ -394,7 +394,7 @@ app.post("/resolveComplaint", (req, res) => {
 // Fetch a complaint by pfNo of the employee -----------------------------------
 app.get('/getComplaintDetailsByPfNo/:pfNo', (req, res) => {
   const pfNo = req.params.pfNo;
-  const sql = 'SELECT title, complaint, status, id FROM railway.complaints WHERE pfNo = ?';
+  const sql = 'SELECT title, complaint, status, complaintID FROM railway.complaints WHERE pfNo = ?';
   db.query(sql, [pfNo], (err, results) => {
     if (err) {
       console.error('Error retrieving complaint details by pfNo:', err);
