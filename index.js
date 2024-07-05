@@ -147,7 +147,9 @@ app.post('/addComplaint', upload.single('document'), async (req, res) => {
 
 // Define a route to handle retrieving complaints by userID --------------------------------
 app.get("/getComplaintByUserId/:userID", (req, res) => {
+  console.log("Route /getComplaintByUserId/:userID hit");
   const userID = req.params.userID;
+  console.log("userID:", userID);
   const sql = `
       SELECT DISTINCT c.*, 
                       t.transactionId, t.createdBy, t.sentTo, t.timeAndDate, t.remark, t.status AS transactionStatus,
@@ -168,48 +170,46 @@ app.get("/getComplaintByUserId/:userID", (req, res) => {
   db.query(sql, [userID, userID], (err, complaintResults) => {
     if (err) {
       console.error("Error retrieving complaints and transactions:", err);
-      res.status(500).send("Failed to retrieve complaints and transactions");
-    } else {
-      // Ensure complaintsResults is always an array
-      const resultsArray = Array.isArray(complaintResults) ? complaintResults : [complaintResults];
-      
-      const complaintsMap = {};
-      resultsArray.forEach((row) => {
-        if (!complaintsMap[row.complaintID]) {
-          complaintsMap[row.complaintID] = {
-            complaintID: row.complaintID,
-            createdByName: row.createdByName,
-            pfNo: row.pfNo,
-            title: row.title,
-            complaint: row.complaint,
-            department: row.department,
-            website: row.website,
-            module: row.module,
-            division: row.division,
-            document: row.document,
-            status: row.status,
-            currentHolder: row.currentHolder,
-            currentHolderUsername: row.currentHolderUsername,
-            transactions: [],
-          };
-        }
-        if (row.transactionId) {
-          complaintsMap[row.complaintID].transactions.push({
-            transactionId: row.transactionId,
-            createdBy: row.createdBy,
-            sentTo: row.sentTo,
-            createdByUsername: complaintsMap[row.complaintID].transactions.length === 0 ? row.createdByName : row.createdByUsername,
-            sentToUsername: row.sentToUsername,
-            timeAndDate: row.timeAndDate,
-            remark: row.remark,
-            status: row.transactionStatus,
-          });
-        }
-      });
-      
-      const complaintsList = Object.values(complaintsMap);
-      res.status(200).json(complaintsList);
+      return res.status(500).send("Failed to retrieve complaints and transactions");
     }
+    console.log("Complaint Results:", complaintResults);
+    const resultsArray = Array.isArray(complaintResults) ? complaintResults : [complaintResults];
+    const complaintsMap = {};
+    resultsArray.forEach((row) => {
+      if (!complaintsMap[row.complaintID]) {
+        complaintsMap[row.complaintID] = {
+          complaintID: row.complaintID,
+          createdByName: row.createdByName,
+          pfNo: row.pfNo,
+          title: row.title,
+          complaint: row.complaint,
+          department: row.department,
+          website: row.website,
+          module: row.module,
+          division: row.division,
+          document: row.document,
+          status: row.status,
+          currentHolder: row.currentHolder,
+          currentHolderUsername: row.currentHolderUsername,
+          transactions: [],
+        };
+      }
+      if (row.transactionId) {
+        complaintsMap[row.complaintID].transactions.push({
+          transactionId: row.transactionId,
+          createdBy: row.createdBy,
+          sentTo: row.sentTo,
+          createdByUsername: complaintsMap[row.complaintID].transactions.length === 0 ? row.createdByName : row.createdByUsername,
+          sentToUsername: row.sentToUsername,
+          timeAndDate: row.timeAndDate,
+          remark: row.remark,
+          status: row.transactionStatus,
+        });
+      }
+    });
+    
+    const complaintsList = Object.values(complaintsMap);
+    res.status(200).json(complaintsList);
   });
 });
 
@@ -346,8 +346,9 @@ app.post("/forwardComplaint", (req, res) => {
 // Resolve a complaint ---------------------------------------------------------------------------------
 app.post("/resolveComplaint", (req, res) => {
   const { remark, createdBy, sentTo, complaintID } = req.body;
+  console.log(req.body);
   const transactionQuery =
-    "INSERT INTO transactions (complaintID, createdBy, sentTo, remark, status, id) VALUES (?, ?, ?, ?, ?)";
+    "INSERT INTO transactions (complaintID, createdBy, sentTo, remark, status) VALUES (?, ?, ?, ?, ?)";
   const transactionValues = [
     complaintID,
     createdBy,
@@ -417,4 +418,38 @@ app.get('/getComplaintDetailsByPfNo/:pfNo', (req, res) => {
   });
 });
 
+// Activate user API
+app.put('/activateUser/:userID', (req, res) => {
+  const userID = req.params.userID;
+  const sql = 'UPDATE users SET isActiveUser = ? WHERE userID = ?';
+  
+  db.query(sql, ['Y', userID], (err, result) => {
+    if (err) {
+      console.error('Error activating user:', err);
+      res.status(500).send('Failed to activate user');
+    } else if (result.affectedRows === 0) {
+      res.status(404).send('User not found');
+    } else {
+      res.status(200).send('User activated successfully');
+    }
+  });
+});
+
+// Deactivate user API
+app.put('/deactivateUser/:userID', (req, res) => {
+  const userID = req.params.userID;
+  console.log(userID)
+  const sql = 'UPDATE users SET isActiveUser = ? WHERE userID = ?';
+  
+  db.query(sql, ['N', userID], (err, result) => {
+    if (err) {
+      console.error('Error deactivating user:', err);
+      res.status(500).send('Failed to deactivate user');
+    } else if (result.affectedRows === 0) {
+      res.status(404).send('User not found');
+    } else {
+      res.status(200).send('User deactivated successfully');
+    }
+  });
+});
 
