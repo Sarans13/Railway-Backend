@@ -91,7 +91,7 @@ app.post("/login", (req, res) => {
     return res.status(400).send("Username and password are required.");
   }
   const query =
-    "SELECT userID, userName FROM users WHERE userName = ? AND password = ?";
+    "SELECT userID, userName, userLevel FROM users WHERE userName = ? AND password = ?";
   db.query(query, [userName, password], (err, results) => {
     if (err) {
       console.error("Error querying the database:", err);
@@ -99,13 +99,14 @@ app.post("/login", (req, res) => {
     }
     if (results.length > 0) {
       const userId = results[0].userID;
-      return res.json({ message: "Login successful", userId, userName, loginStatus: true });
+      const userLevel = results[0].userLevel; // Extract userLevel from the results
+      return res.json({ message: "Login successful", userId, userName, userLevel, loginStatus: true });
     } else {
       return res.status(401).json({ loginStatus: false, Error: "Wrong Credentials" });
     }
   });
 });
-//
+
 
 // create a complaint by the employee -----------------------------
 app.post('/addComplaint', upload.single('document'), async (req, res) => {
@@ -557,7 +558,7 @@ app.get("/getComplaintById/:complaintID", (req, res) => {
 
 //get level 0 and level 1 users -----------------------------------------------------------
 app.get("/getLevel0and1", (req, res) => {
-  const query = "SELECT userID, userName FROM users WHERE userLevel IN (0, 1)";
+  const query = "SELECT userID, userName FROM users WHERE userLevel IN (0, 1,2)";
 
   db.query(query, (err, results) => {
     if (err) {
