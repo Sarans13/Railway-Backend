@@ -253,7 +253,7 @@ app.post("/addUser", (req, res) => {
 // Define a route to handle retrieving complaints by complaintID ----------------------------
 app.get("/getComplaintByComplaintId/:id", (req, res) => {
   const compID = req.params.id;
-  const sql = "SELECT title, complaint, status, complaintID FROM complaints WHERE complaintID = ?";
+  const sql = "SELECT * FROM complaints WHERE complaintID = ?";
   
   db.query(sql, [compID], (err, results) => {
     if (err) {
@@ -405,7 +405,7 @@ app.post("/resolveComplaint", (req, res) => {
 // Fetch a complaint by pfNo of the employee -----------------------------------
 app.get('/getComplaintDetailsByPfNo/:pfNo', (req, res) => {
   const pfNo = req.params.pfNo;
-  const sql = 'SELECT title, complaint, status, complaintID FROM railway.complaints WHERE pfNo = ?';
+  const sql = 'SELECT * FROM railway.complaints WHERE pfNo = ?';
   db.query(sql, [pfNo], (err, results) => {
     if (err) {
       console.error('Error retrieving complaint details by pfNo:', err);
