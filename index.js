@@ -172,6 +172,73 @@ app.post('/addComplaint', upload.single('document'), async (req, res) => {
 });
 
 // Define a route to handle retrieving complaints by userID --------------------------------
+// app.get("/getComplaintByUserId/:userID", (req, res) => {
+//   console.log("Route /getComplaintByUserId/:userID hit");
+//   const userID = req.params.userID;
+//   console.log("userID:", userID);
+//   const sql = `
+//       SELECT DISTINCT c.*, 
+//                       t.transactionId, t.createdBy, t.sentTo, t.timeAndDate, t.remark, t.status AS transactionStatus,
+//                       uc.userName AS createdByUsername,
+//                       us.userName AS sentToUsername,
+//                       ch.userName AS currentHolderUsername
+//       FROM complaints c
+//       LEFT JOIN transactions t ON c.complaintID = t.complaintID
+//       LEFT JOIN users uc ON t.createdBy = uc.userID
+//       LEFT JOIN users us ON t.sentTo = us.userID
+//       LEFT JOIN users ch ON c.currentHolder = ch.userID
+//       WHERE c.complaintID IN (
+//           SELECT complaintID
+//           FROM transactions
+//           WHERE createdBy = ? OR sentTo = ?
+//       )`;
+  
+//   db.query(sql, [userID, userID], (err, complaintResults) => {
+//     if (err) {
+//       console.error("Error retrieving complaints and transactions:", err);
+//       return res.status(500).send("Failed to retrieve complaints and transactions");
+//     }
+//     console.log("Complaint Results:", complaintResults);
+//     const resultsArray = Array.isArray(complaintResults) ? complaintResults : [complaintResults];
+//     const complaintsMap = {};
+//     resultsArray.forEach((row) => {
+//       if (!complaintsMap[row.complaintID]) {
+//         complaintsMap[row.complaintID] = {
+//           complaintID: row.complaintID,
+//           createdByName: row.createdByName,
+//           pfNo: row.pfNo,
+//           title: row.title,
+//           complaint: row.complaint,
+//           department: row.department,
+//           website: row.website,
+//           module: row.module,
+//           division: row.division,
+//           document: row.document,
+//           status: row.status,
+//           currentHolder: row.currentHolder,
+//           currentHolderUsername: row.currentHolderUsername,
+//           transactions: [],
+//         };
+//       }
+//       if (row.transactionId) {
+//         complaintsMap[row.complaintID].transactions.push({
+//           transactionId: row.transactionId,
+//           createdBy: row.createdBy,
+//           sentTo: row.sentTo,
+//           createdByUsername: complaintsMap[row.complaintID].transactions.length === 0 ? row.createdByName : row.createdByUsername,
+//           sentToUsername: row.sentToUsername,
+//           timeAndDate: row.timeAndDate,
+//           remark: row.remark,
+//           status: row.transactionStatus,
+//         });
+//       }
+//     });
+    
+//     const complaintsList = Object.values(complaintsMap);
+//     res.status(200).json(complaintsList);
+//   });
+// });
+
 app.get("/getComplaintByUserId/:userID", (req, res) => {
   console.log("Route /getComplaintByUserId/:userID hit");
   const userID = req.params.userID;
@@ -191,7 +258,8 @@ app.get("/getComplaintByUserId/:userID", (req, res) => {
           SELECT complaintID
           FROM transactions
           WHERE createdBy = ? OR sentTo = ?
-      )`;
+      )
+      ORDER BY t.timeAndDate DESC`;  // Order by timeAndDate in descending order
   
   db.query(sql, [userID, userID], (err, complaintResults) => {
     if (err) {
@@ -234,7 +302,14 @@ app.get("/getComplaintByUserId/:userID", (req, res) => {
       }
     });
     
+    // Convert complaintsMap to an array of values
     const complaintsList = Object.values(complaintsMap);
+    
+    // Sort transactions within each complaint by timeAndDate in descending order
+    complaintsList.forEach(complaint => {
+      complaint.transactions.sort((a, b) => new Date(b.timeAndDate) - new Date(a.timeAndDate));
+    });
+    
     res.status(200).json(complaintsList);
   });
 });
@@ -277,6 +352,69 @@ app.post("/addUser", (req, res) => {
 });
 
 // Define a route to handle retrieving complaints by complaintID ----------------------------
+// app.get("/getComplaintById/:complaintID", (req, res) => {
+//   const complaintID = req.params.complaintID;
+
+//   const sql = `
+//     SELECT DISTINCT c.*, 
+//                     t.transactionId, t.createdBy, t.sentTo, t.timeAndDate, t.remark, t.status AS transactionStatus,
+//                     uc.userName AS createdByUsername,
+//                     us.userName AS sentToUsername,
+//                     ch.userName AS currentHolderUsername
+//     FROM complaints c
+//     LEFT JOIN transactions t ON c.complaintID = t.complaintID
+//     LEFT JOIN users uc ON t.createdBy = uc.userID
+//     LEFT JOIN users us ON t.sentTo = us.userID
+//     LEFT JOIN users ch ON c.currentHolder = ch.userID
+//     WHERE c.complaintID = ?
+//   `;
+
+//   db.query(sql, [complaintID], (err, complaintResults) => {
+//     if (err) {
+//       console.error("Error retrieving complaints and transactions:", err);
+//       return res.status(500).send("Failed to retrieve complaints and transactions");
+//     }
+//     console.log("Complaint Results:", complaintResults);
+//     const resultsArray = Array.isArray(complaintResults) ? complaintResults : [complaintResults];
+//     const complaintsMap = {};
+//     resultsArray.forEach((row) => {
+//       if (!complaintsMap[row.complaintID]) {
+//         complaintsMap[row.complaintID] = {
+//           complaintID: row.complaintID,
+//           createdByName: row.createdByName,
+//           pfNo: row.pfNo,
+//           title: row.title,
+//           complaint: row.complaint,
+//           department: row.department,
+//           website: row.website,
+//           module: row.module,
+//           division: row.division,
+//           document: row.document,
+//           status: row.status,
+//           currentHolder: row.currentHolder,
+//           currentHolderUsername: row.currentHolderUsername,
+//           transactions: [],
+//         };
+//       }
+//       if (row.transactionId) {
+//         complaintsMap[row.complaintID].transactions.push({
+//           transactionId: row.transactionId,
+//           createdBy: row.createdBy,
+//           sentTo: row.sentTo,
+//           createdByUsername: complaintsMap[row.complaintID].transactions.length === 0 ? row.createdByName : row.createdByUsername,
+//           sentToUsername: row.sentToUsername,
+//           timeAndDate: row.timeAndDate,
+//           remark: row.remark,
+//           status: row.transactionStatus,
+//         });
+//       }
+//     });
+
+//     const complaintsList = Object.values(complaintsMap);
+//     res.status(200).json(complaintsList);
+//   });
+// });
+
 app.get("/getComplaintById/:complaintID", (req, res) => {
   const complaintID = req.params.complaintID;
 
@@ -292,7 +430,7 @@ app.get("/getComplaintById/:complaintID", (req, res) => {
     LEFT JOIN users us ON t.sentTo = us.userID
     LEFT JOIN users ch ON c.currentHolder = ch.userID
     WHERE c.complaintID = ?
-  `;
+    ORDER BY t.timeAndDate DESC`;  // Order by timeAndDate in descending order
 
   db.query(sql, [complaintID], (err, complaintResults) => {
     if (err) {
@@ -335,10 +473,18 @@ app.get("/getComplaintById/:complaintID", (req, res) => {
       }
     });
 
+    // Sort transactions within the complaint by timeAndDate in descending order
+    if (complaintsMap[complaintID]) {
+      complaintsMap[complaintID].transactions.sort((a, b) => new Date(b.timeAndDate) - new Date(a.timeAndDate));
+    }
+
+    // Convert complaintsMap to an array of values
     const complaintsList = Object.values(complaintsMap);
+    
     res.status(200).json(complaintsList);
   });
 });
+
 
 
 //get level 0 and level 1 users -----------------------------------------------------------
@@ -414,6 +560,9 @@ app.post("/forwardComplaint", (req, res) => {
   });
 });
 
+
+
+
 // Resolve a complaint ---------------------------------------------------------------------------------
 app.post("/resolveComplaint", (req, res) => {
   const { remark, createdBy, sentTo, complaintID } = req.body;
@@ -474,6 +623,68 @@ app.post("/resolveComplaint", (req, res) => {
 });
 
 // Fetch a complaint by pfNo of the employee -----------------------------------
+// app.get("/getComplaintByPfNo/:pfNo", (req, res) => {
+//   const pfNo = req.params.pfNo;
+//   console.log(pfNo);
+//   const sql = `
+//     SELECT DISTINCT c.*, 
+//                     t.transactionId, t.createdBy, t.sentTo, t.timeAndDate, t.remark, t.status AS transactionStatus,
+//                     uc.userName AS createdByUsername,
+//                     us.userName AS sentToUsername,
+//                     ch.userName AS currentHolderUsername
+//     FROM complaints c
+//     LEFT JOIN transactions t ON c.complaintID = t.complaintID
+//     LEFT JOIN users uc ON t.createdBy = uc.userID
+//     LEFT JOIN users us ON t.sentTo = us.userID
+//     LEFT JOIN users ch ON c.currentHolder = ch.userID
+//     WHERE c.pfNo = ?
+//   `;
+
+//   db.query(sql, [pfNo], (err, complaintResults) => {
+//     if (err) {
+//       console.error("Error retrieving complaints and transactions:", err);
+//       return res.status(500).send("Failed to retrieve complaints and transactions");
+//     }
+//     console.log("Complaint Results:", complaintResults);
+//     const resultsArray = Array.isArray(complaintResults) ? complaintResults : [complaintResults];
+//     const complaintsMap = {};
+//     resultsArray.forEach((row) => {
+//       if (!complaintsMap[row.complaintID]) {
+//         complaintsMap[row.complaintID] = {
+//           complaintID: row.complaintID,
+//           createdByName: row.createdByName,
+//           pfNo: row.pfNo,
+//           title: row.title,
+//           complaint: row.complaint,
+//           department: row.department,
+//           website: row.website,
+//           module: row.module,
+//           division: row.division,
+//           document: row.document,
+//           status: row.status,
+//           currentHolder: row.currentHolder,
+//           currentHolderUsername: row.currentHolderUsername,
+//           transactions: [],
+//         };
+//       }
+//       if (row.transactionId) {
+//         complaintsMap[row.complaintID].transactions.push({
+//           transactionId: row.transactionId,
+//           createdBy: row.createdBy,
+//           sentTo: row.sentTo,
+//           createdByUsername: complaintsMap[row.complaintID].transactions.length === 0 ? row.createdByName : row.createdByUsername,
+//           sentToUsername: row.sentToUsername,
+//           timeAndDate: row.timeAndDate,
+//           remark: row.remark,
+//           status: row.transactionStatus,
+//         });
+//       }
+//     });
+
+//     const complaintsList = Object.values(complaintsMap);
+//     res.status(200).json(complaintsList);
+//   });
+// });
 app.get("/getComplaintByPfNo/:pfNo", (req, res) => {
   const pfNo = req.params.pfNo;
   console.log(pfNo);
@@ -489,7 +700,7 @@ app.get("/getComplaintByPfNo/:pfNo", (req, res) => {
     LEFT JOIN users us ON t.sentTo = us.userID
     LEFT JOIN users ch ON c.currentHolder = ch.userID
     WHERE c.pfNo = ?
-  `;
+    ORDER BY t.timeAndDate DESC`;  // Order by timeAndDate in descending order
 
   db.query(sql, [pfNo], (err, complaintResults) => {
     if (err) {
@@ -532,10 +743,18 @@ app.get("/getComplaintByPfNo/:pfNo", (req, res) => {
       }
     });
 
+    // Sort transactions within each complaint by timeAndDate in descending order
+    Object.values(complaintsMap).forEach(complaint => {
+      complaint.transactions.sort((a, b) => new Date(b.timeAndDate) - new Date(a.timeAndDate));
+    });
+
+    // Convert complaintsMap to an array of values
     const complaintsList = Object.values(complaintsMap);
+    
     res.status(200).json(complaintsList);
   });
 });
+
 
 
 // Activate user API
@@ -558,7 +777,6 @@ app.put('/activateUser/:userID', (req, res) => {
 // Deactivate user API
 app.put('/deactivateUser/:userID', (req, res) => {
   const userID = req.params.userID;
-  console.log(userID)
   const sql = 'UPDATE users SET isActiveUser = ? WHERE userID = ?';
   
   db.query(sql, ['N', userID], (err, result) => {
@@ -573,3 +791,40 @@ app.put('/deactivateUser/:userID', (req, res) => {
   });
 });
 
+
+app.get('/getUserDetails/:userId', (req, res) => {
+  const userId = req.params.userId;
+  const sql = 'SELECT userID, userName, email, contact, userLevel, isActiveUser FROM users WHERE userID = ?';
+
+  db.query(sql, [userId], (err, results) => {
+    if (err) {
+      console.error('Error fetching user details:', err);
+      return res.status(500).json({ error: 'Error fetching user details' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json(results[0]);
+  });
+});
+
+
+// Toggle user activation API
+app.put('/toggleUserActivation/:userID', (req, res) => {
+  const userID = req.params.userID;
+  const newStatus = req.body.newStatus; // 'Y' or 'N'
+
+  const sql = 'UPDATE users SET isActiveUser = ? WHERE userID = ?';
+  db.query(sql, [newStatus, userID], (err, result) => {
+    if (err) {
+      console.error('Error toggling user activation:', err);
+      res.status(500).send('Failed to toggle user activation');
+    } else if (result.affectedRows === 0) {
+      res.status(404).send('User not found');
+    } else {
+      res.status(200).send('User activation toggled successfully');
+    }
+  });
+});
