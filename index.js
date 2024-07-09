@@ -976,51 +976,76 @@ app.get("/getResolvedComplaintsByCurrentHolder/:userID", (req, res) => {
 //APIS FOR REPORT PAGE
 
 // Retrieve total number of complaints
-app.get('/api/complaints/total', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT COUNT(*) as totalComplaints FROM complaints');
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.get('/complaints/count', (req, res) => {
+  db.query('SELECT COUNT(*) AS complaintCount FROM complaints', (err, results) => {
+    if (err) {
+      console.error(err);
+      res.status(500).send({ message: 'Error retrieving complaint count' });
+    } else {
+      const count = results[0].complaintCount;
+      res.send({ count });
+    }
+  });
+});
+// Retrieve number of complaints with status "pending"
+
+app.get('/complaints/count/pending', (req, res) => {
+  db.query('SELECT COUNT(*) as totalPending FROM complaints WHERE status = "pending"', (err, results) => {
+    if (err) {
+      console.error(err);
+      res.status(500).send({ message: 'Error retrieving complaint count' });
+    } else {
+      const count = results[0].totalPending; // Access totalPending, not complaintCount
+      res.send({ count });
+    }
+  });
 });
 
-// Retrieve number of complaints with status "pending"
-app.get('/api/complaints/pending', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT COUNT(*) as totalPending FROM complaints WHERE status = "pending"');
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+
+
+// app.get('/api/complaints/pending', async (req, res) => {
+//   try {
+//     const [rows] = await db.query('SELECT COUNT(*) as totalPending FROM complaints WHERE status = "pending"');
+//     res.json(rows[0]);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // Retrieve number of complaints with status "resolved"
-app.get('/api/complaints/resolved', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT COUNT(*) as totalResolved FROM complaints WHERE status = "Resolved"');
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.get('/complaints/count/resolved', (req, res) => {
+  db.query('SELECT COUNT(*) as totalResolved FROM complaints WHERE status = "Resolved"', (err, results) => {
+    if (err) {
+      console.error(err);
+      res.status(500).send({ message: 'Error retrieving resolved complaint count' });
+    } else {
+      const count = results[0].totalResolved;
+      res.send({ count });
+    }
+  });
 });
-
 // Retrieve number of complaints with status "in progress"
-app.get('/api/complaints/inprogress', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT COUNT(*) as totalInProgress FROM complaints WHERE status = "In progress"');
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.get('/complaints/count/inprogress', (req, res) => {
+  db.query('SELECT COUNT(*) as totalInProgress FROM complaints WHERE status = "in progress"', (err, results) => {
+    if (err) {
+      console.error(err);
+      res.status(500).send({ message: 'Error retrieving in-progress complaint count' });
+    } else {
+      const count = results[0].totalInProgress;
+      res.send({ count });
+    }
+  });
 });
 
 // Retrieve count of distinct createdByName
-app.get('/api/complaints/createdByNames/count', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT COUNT(DISTINCT createdByName) as distinctCreatedByNameCount FROM complaints');
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.get('/api/complaints/createdByNames/count', (req, res) => {
+  db.query('SELECT COUNT(DISTINCT createdByName) as distinctCreatedByNameCount FROM complaints', (err, results) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error retrieving distinct createdByName count' });
+    } else {
+      res.json({ count: results[0].distinctCreatedByNameCount });
+    }
+  });
 });
+
