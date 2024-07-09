@@ -971,3 +971,56 @@ app.get("/getResolvedComplaintsByCurrentHolder/:userID", (req, res) => {
     res.status(200).json(complaintsList);
   });
 });
+
+
+//APIS FOR REPORT PAGE
+
+// Retrieve total number of complaints
+app.get('/api/complaints/total', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT COUNT(*) as totalComplaints FROM complaints');
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Retrieve number of complaints with status "pending"
+app.get('/api/complaints/pending', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT COUNT(*) as totalPending FROM complaints WHERE status = "pending"');
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Retrieve number of complaints with status "resolved"
+app.get('/api/complaints/resolved', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT COUNT(*) as totalResolved FROM complaints WHERE status = "Resolved"');
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Retrieve number of complaints with status "in progress"
+app.get('/api/complaints/inprogress', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT COUNT(*) as totalInProgress FROM complaints WHERE status = "In progress"');
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Retrieve count of distinct createdByName
+app.get('/api/complaints/createdByNames/count', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT COUNT(DISTINCT createdByName) as distinctCreatedByNameCount FROM complaints');
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
