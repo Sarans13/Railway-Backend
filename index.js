@@ -60,6 +60,31 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Endpoint to validate username and password -------------------
+// app.post("/login", (req, res) => {
+//   const { userName, password } = req.body;
+//   if (!userName || !password) {
+//     return res.status(400).send("Username and password are required.");
+//   }
+//   const query =
+//     "SELECT userID, userName FROM users WHERE userName = ? AND password = ?";
+//   db.query(query, [userName, password], (err, results) => {
+//     if (err) {
+//       console.error("Error querying the database:", err);
+//       return res.status(500).send("Error querying the database.");
+//     }
+//     if (results.length > 0) {
+//       const userId = results[0].userID;
+//       res.json({ message: "Login successful", userId, userName });
+//       return res.json({ loginStatus: true });
+//     } else {
+//       res.status(401).send("Invalid username or password.");
+//       return res.json({ loginStatus: false, Error: "Wrong Credentials" });
+//     }
+//   });
+// });
+
+//
+
 app.post("/login", (req, res) => {
   const { userName, password } = req.body;
   if (!userName || !password) {
@@ -74,12 +99,13 @@ app.post("/login", (req, res) => {
     }
     if (results.length > 0) {
       const userId = results[0].userID;
-      res.json({ message: "Login successful", userId, userName });
+      return res.json({ message: "Login successful", userId, userName, loginStatus: true });
     } else {
-      res.status(401).send("Invalid username or password.");
+      return res.status(401).json({ loginStatus: false, Error: "Wrong Credentials" });
     }
   });
 });
+//
 
 // create a complaint by the employee -----------------------------
 app.post('/addComplaint', upload.single('document'), async (req, res) => {
