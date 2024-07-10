@@ -883,7 +883,7 @@ app.get('/getUserDetails/:userId', (req, res) => {
 // Toggle user activation API
 app.put('/toggleUserActivation/:userID', (req, res) => {
   const userID = req.params.userID;
-  const newStatus = req.body.newStatus; // 'Y' or 'N'
+  const newStatus = req.body.newStatus; 
 
   const sql = 'UPDATE users SET isActiveUser = ? WHERE userID = ?';
   db.query(sql, [newStatus, userID], (err, result) => {
@@ -975,8 +975,8 @@ app.get("/getResolvedComplaintsByCurrentHolder/:userID", (req, res) => {
 
 //APIS FOR REPORT PAGE
 
-// Retrieve total number of complaints
 app.get('/complaints/count', (req, res) => {
+  const { currentHolder } = req.query;
   db.query('SELECT COUNT(*) AS complaintCount FROM complaints', (err, results) => {
     if (err) {
       console.error(err);
@@ -987,34 +987,25 @@ app.get('/complaints/count', (req, res) => {
     }
   });
 });
-// Retrieve number of complaints with status "pending"
 
+// Retrieve number of complaints with status "pending" for a specific user
 app.get('/complaints/count/pending', (req, res) => {
-  db.query('SELECT COUNT(*) as totalPending FROM complaints WHERE status = "pending"', (err, results) => {
+  const { currentHolder } = req.query;
+  db.query('SELECT COUNT(*) as totalPending FROM complaints WHERE status = "pending" AND currentHolder = ?', [currentHolder], (err, results) => {
     if (err) {
       console.error(err);
       res.status(500).send({ message: 'Error retrieving complaint count' });
     } else {
-      const count = results[0].totalPending; // Access totalPending, not complaintCount
+      const count = results[0].totalPending;
       res.send({ count });
     }
   });
 });
 
-
-
-// app.get('/api/complaints/pending', async (req, res) => {
-//   try {
-//     const [rows] = await db.query('SELECT COUNT(*) as totalPending FROM complaints WHERE status = "pending"');
-//     res.json(rows[0]);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-// Retrieve number of complaints with status "resolved"
+// Retrieve number of complaints with status "resolved" for a specific user
 app.get('/complaints/count/resolved', (req, res) => {
-  db.query('SELECT COUNT(*) as totalResolved FROM complaints WHERE status = "Resolved"', (err, results) => {
+  const { currentHolder } = req.query;
+  db.query('SELECT COUNT(*) as totalResolved FROM complaints WHERE status = "Resolved" AND currentHolder = ?', [currentHolder], (err, results) => {
     if (err) {
       console.error(err);
       res.status(500).send({ message: 'Error retrieving resolved complaint count' });
@@ -1024,9 +1015,11 @@ app.get('/complaints/count/resolved', (req, res) => {
     }
   });
 });
-// Retrieve number of complaints with status "in progress"
+
+// Retrieve number of complaints with status "in progress" for a specific user
 app.get('/complaints/count/inprogress', (req, res) => {
-  db.query('SELECT COUNT(*) as totalInProgress FROM complaints WHERE status = "in progress"', (err, results) => {
+  const { currentHolder } = req.query;
+  db.query('SELECT COUNT(*) as totalInProgress FROM complaints WHERE status = "in progress" ', (err, results) => {
     if (err) {
       console.error(err);
       res.status(500).send({ message: 'Error retrieving in-progress complaint count' });
@@ -1037,9 +1030,10 @@ app.get('/complaints/count/inprogress', (req, res) => {
   });
 });
 
-// Retrieve count of distinct createdByName
+// Retrieve count of distinct createdByName for a specific user
 app.get('/api/complaints/createdByNames/count', (req, res) => {
-  db.query('SELECT COUNT(DISTINCT createdByName) as distinctCreatedByNameCount FROM complaints', (err, results) => {
+  const { currentHolder } = req.query;
+  db.query('SELECT COUNT(DISTINCT createdByName) as distinctCreatedByNameCount FROM complaints WHERE currentHolder = ?', [currentHolder], (err, results) => {
     if (err) {
       console.error(err);
       res.status(500).json({ error: 'Error retrieving distinct createdByName count' });
@@ -1048,4 +1042,3 @@ app.get('/api/complaints/createdByNames/count', (req, res) => {
     }
   });
 });
-
