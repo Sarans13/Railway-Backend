@@ -84,28 +84,34 @@ const upload = multer({ storage: storage });
 // });
 
 //
-
 app.post("/login", (req, res) => {
-  const { userName, password } = req.body;
-  if (!userName || !password) {
-    return res.status(400).send("Username and password are required.");
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).send("Email and password are required.");
   }
-  const query =
-    "SELECT userID, userName, userLevel FROM users WHERE userName = ? AND password = ?";
-  db.query(query, [userName, password], (err, results) => {
+  const query = "SELECT userID, userName, userLevel, isActiveUser FROM users WHERE email = ? AND password = ?";
+  db.query(query, [email, password], (err, results) => {
     if (err) {
       console.error("Error querying the database:", err);
       return res.status(500).send("Error querying the database.");
     }
+   
     if (results.length > 0) {
-      const userId = results[0].userID;
-      const userLevel = results[0].userLevel; // Extract userLevel from the results
-      return res.json({ message: "Login successful", userId, userName, userLevel, loginStatus: true });
+      const user = results[0];
+      const { userID, userName, userLevel, isActiveUser } = user;
+
+      if (isActiveUser === 'N') {
+        return res.status(401).json({ loginStatus: false, message: "User is deactivated" });
+      }
+
+      return res.json({ message: "Login successful", userID, userName, userLevel, loginStatus: true });
     } else {
-      return res.status(401).json({ loginStatus: false, Error: "Wrong Credentials" });
+      return res.status(401).json({ loginStatus: false, message: "Wrong credentials" });
     }
   });
 });
+
+
 
 
 // create a complaint by the employee -----------------------------
@@ -558,7 +564,7 @@ app.get("/getComplaintById/:complaintID", (req, res) => {
 
 //get level 0 and level 1 users -----------------------------------------------------------
 app.get("/getLevel0and1", (req, res) => {
-  const query = "SELECT userID, userName FROM users WHERE userLevel IN (0, 1,2)";
+  const query = "SELECT * FROM users WHERE userLevel IN (1,2)";
 
   db.query(query, (err, results) => {
     if (err) {
@@ -881,6 +887,22 @@ app.get('/getUserDetails/:userId', (req, res) => {
 
 
 // Toggle user activation API
+// app.put('/toggleUserActivation/:userID', (req, res) => {
+//   const userID = req.params.userID;
+//   const newStatus = req.body.newStatus; 
+
+//   const sql = 'UPDATE users SET isActiveUser = ? WHERE userID = ?';
+//   db.query(sql, [newStatus, userID], (err, result) => {
+//     if (err) {
+//       console.error('Error toggling user activation:', err);
+//       res.status(500).send('Failed to toggle user activation');
+//     } else if (result.affectedRows === 0) {
+//       res.status(404).send('User not found');
+//     } else {
+//       res.status(200).send('User activation toggled successfully');
+//     }
+//   });
+// });
 app.put('/toggleUserActivation/:userID', (req, res) => {
   const userID = req.params.userID;
   const newStatus = req.body.newStatus; 
@@ -897,6 +919,7 @@ app.put('/toggleUserActivation/:userID', (req, res) => {
     }
   });
 });
+
 
 
 // get resolved complaints -----------------------------------------------
@@ -973,25 +996,69 @@ app.get("/getResolvedComplaintsByCurrentHolder/:userID", (req, res) => {
 });
 
 
-//APIS FOR REPORT PAGE
+
+// app.get('/complaints/count', (req, res) => {
+//   const { currentHolder, startDateFormatted, endDateFormatted } = req.query;
+//   const sql = `
+//     SELECT COUNT(DISTINCT complaintID) AS count
+//     FROM railway.transactions
+//     WHERE (createdBy = ? OR sentTo = ?)
+//       AND timeAndDate BETWEEN ? AND ?;
+//   `;
+
+//   db.query(sql, [currentHolder, currentHolder, startDateFormatted, endDateFormatted], (err, results) => {
+//     if (err) {
+//       console.error('Error retrieving total complaints count:', err);
+//       res.status(500).json({ error: 'Failed to retrieve total complaints count' });
+//     } else {
+//       const count = results[0].count;
+//       res.json({ count });
+//     }
+//   });
+// });
+
 
 app.get('/complaints/count', (req, res) => {
-  const { currentHolder } = req.query;
-  db.query('SELECT COUNT(*) AS complaintCount FROM complaints', (err, results) => {
+  const { currentHolder, startDateFormatted, endDateFormatted } = req.query;
+  let sql = `
+    SELECT COUNT(DISTINCT complaintID) AS count
+    FROM railway.transactions
+    WHERE createdBy = ? OR sentTo = ?`;
+  const params = [currentHolder, currentHolder];
+
+  if (startDateFormatted !== endDateFormatted) {
+    sql += ' AND timeAndDate BETWEEN ? AND ?';
+    params.push(startDateFormatted, endDateFormatted);
+  }
+
+  db.query(sql, params, (err, results) => {
     if (err) {
-      console.error(err);
-      res.status(500).send({ message: 'Error retrieving complaint count' });
+      console.error('Error retrieving total complaints count:', err);
+      res.status(500).json({ error: 'Failed to retrieve total complaints count' });
     } else {
-      const count = results[0].complaintCount;
-      res.send({ count });
+      const count = results[0].count;
+      res.json({ count });
     }
   });
 });
 
+
 // Retrieve number of complaints with status "pending" for a specific user
 app.get('/complaints/count/pending', (req, res) => {
-  const { currentHolder } = req.query;
-  db.query('SELECT COUNT(*) as totalPending FROM complaints WHERE status = "pending" AND currentHolder = ?', [currentHolder], (err, results) => {
+  const { currentHolder, startDateFormatted, endDateFormatted } = req.query;
+  let sql = `
+    SELECT COUNT(*) AS totalPending 
+    FROM complaints 
+    WHERE status = 'pending' 
+      AND currentHolder = ?`;
+  const params = [currentHolder];
+
+  if (startDateFormatted !== endDateFormatted) {
+    sql += ' AND complaintTimeandDate BETWEEN ? AND ?';
+    params.push(startDateFormatted, endDateFormatted);
+  }
+
+  db.query(sql, params, (err, results) => {
     if (err) {
       console.error(err);
       res.status(500).send({ message: 'Error retrieving complaint count' });
@@ -1002,10 +1069,23 @@ app.get('/complaints/count/pending', (req, res) => {
   });
 });
 
+
 // Retrieve number of complaints with status "resolved" for a specific user
 app.get('/complaints/count/resolved', (req, res) => {
-  const { currentHolder } = req.query;
-  db.query('SELECT COUNT(*) as totalResolved FROM complaints WHERE status = "Resolved" AND currentHolder = ?', [currentHolder], (err, results) => {
+  const { currentHolder, startDateFormatted, endDateFormatted } = req.query;
+  let sql = `
+    SELECT COUNT(*) AS totalResolved 
+    FROM complaints 
+    WHERE status = 'Resolved' 
+      AND currentHolder = ?`;
+  const params = [currentHolder];
+
+  if (startDateFormatted !== endDateFormatted) {
+    sql += ' AND complaintTimeandDate BETWEEN ? AND ?';
+    params.push(startDateFormatted, endDateFormatted);
+  }
+
+  db.query(sql, params, (err, results) => {
     if (err) {
       console.error(err);
       res.status(500).send({ message: 'Error retrieving resolved complaint count' });
@@ -1018,8 +1098,19 @@ app.get('/complaints/count/resolved', (req, res) => {
 
 // Retrieve number of complaints with status "in progress" for a specific user
 app.get('/complaints/count/inprogress', (req, res) => {
-  const { currentHolder } = req.query;
-  db.query('SELECT COUNT(*) as totalInProgress FROM complaints WHERE status = "in progress" ', (err, results) => {
+  const { currentHolder, startDateFormatted, endDateFormatted } = req.query;
+  let sql = `
+    SELECT COUNT(*) AS totalInProgress 
+    FROM transactions 
+    WHERE createdBy = ?`;
+  const params = [currentHolder];
+
+  if (startDateFormatted !== endDateFormatted) {
+    sql += ' AND timeAndDate BETWEEN ? AND ?';
+    params.push(startDateFormatted, endDateFormatted);
+  }
+
+  db.query(sql, params, (err, results) => {
     if (err) {
       console.error(err);
       res.status(500).send({ message: 'Error retrieving in-progress complaint count' });
@@ -1030,15 +1121,5 @@ app.get('/complaints/count/inprogress', (req, res) => {
   });
 });
 
-// Retrieve count of distinct createdByName for a specific user
-app.get('/api/complaints/createdByNames/count', (req, res) => {
-  const { currentHolder } = req.query;
-  db.query('SELECT COUNT(DISTINCT createdByName) as distinctCreatedByNameCount FROM complaints WHERE currentHolder = ?', [currentHolder], (err, results) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Error retrieving distinct createdByName count' });
-    } else {
-      res.json({ count: results[0].distinctCreatedByNameCount });
-    }
-  });
-});
+
+
